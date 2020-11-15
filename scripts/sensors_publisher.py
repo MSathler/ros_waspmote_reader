@@ -1,43 +1,42 @@
-#!/usr/bin/env python
 import rospy
 import serial
 from std_msgs.msg import Float32MultiArray,MultiArrayDimension,MultiArrayLayout
+from ros_waspmote_reader.msg import wasp
 
+### $ sudo usermod -a -G dialout $USER
 
+class wasp_reader():
 
-def parse(ser):
+	def __init__(self, 
+				 frame_id = 'gas_sensor', 
+				 serial_port = '/dev/ttyUSB0', 
+				 serial_baudrate = 115200
+				 ):
 
-	data = ser.readline().split(":")
-	g_data = data[1].split(",")
-	return [int(g_data[i]) for i in range(len(g_data))]
+		self.pub = rospy.Publisher('espeleo_gas_pub', wasp, queue_size = 10)
+		rospy.init_node('wasp_node')
+		self.rate = rospy.Rate(1)
 
+		self.gas_data = wasp()
+		self.gas_data.header.stamp = rospy.Time.now()
+		self.gas_data.header.frame_id = frame_id
+		self.gas_data.sensor_name = ['CO2','H2S','O2','CO','NO2','NH3']
+		self.ser = serial.Serial(serial_port, serial_baudrate)
 
-def gas_pub():
+		rospy.loginfo("Publisher Created")
 
-	pub = rospy.Publisher('espeleo_gas_pub', Float32MultiArray, queue_size = 10)
-	rospy.init_node('wasp_node')
-	rate = rospy.Rate(1)
-	gas_data = Float32MultiArray()
-	ser = serial.Serial('/dev/ttyUSB0', 115200)
-	rospy.loginfo("Publisher Iniciated")
+	def parse(self):
 
-	while not rospy.is_shutdown():
+		self.data = self.ser.readline().split(":")
+		self.g_data = self.data[1].split(",")
+		return [int(self.g_data[i]) for i in range(len(self.g_data))]
 
-		gas_data.data = parse(ser)
-		pub.publish(gas_data)
-		rate.sleep()
+	def initiate(self):
+		rospy.loginfo("Publisher Initiated")
 
-
-if __name__ == '__main__':
-
-	try:
-		gas_pub()
-
-	except rospy.ROSInterruptException:
-		pass
-
-
-
-
+		while not rospy.is_shutdown():
+			self.gas_data.reads = self.parse()
+			self.pub.publish(self.gas_data)
+			self.rate.sleep()
 
 
