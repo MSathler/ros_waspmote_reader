@@ -1,6 +1,5 @@
 import rospy
 import serial
-from std_msgs.msg import Float32MultiArray,MultiArrayDimension,MultiArrayLayout
 from ros_waspmote_reader.msg import wasp
 
 ### $ sudo usermod -a -G dialout $USER
@@ -20,7 +19,7 @@ class wasp_reader():
 		self.gas_data = wasp()
 		self.gas_data.header.stamp = rospy.Time.now()
 		self.gas_data.header.frame_id = frame_id
-		self.gas_data.sensor_name = ['CO2','H2S','O2','CO','NO2','NH3']
+		self.gas_data.sensor_name = ['H2S','SO2','CO','NH3','NO2','TEMPERATURE','HUMIDITY','PRESSURE']
 		self.ser = serial.Serial(serial_port, serial_baudrate)
 
 		rospy.loginfo("Publisher Created")
@@ -28,15 +27,23 @@ class wasp_reader():
 	def parse(self):
 
 		self.data = self.ser.readline().split(":")
-		self.g_data = self.data[1].split(",")
-		return [int(self.g_data[i]) for i in range(len(self.g_data))]
+		rospy.loginfo(self.data)
+		if self.data[0] == "Gas concentration":
+			
+			self.g_data = self.data[1].split(",")
+			#rospy.loginfo(self.g_data)
+			return [float(self.g_data[i]) for i in range(len(self.g_data)-1)]
+		else:
+			rospy.loginfo("Waiting for the sensor to warm up! 2 Minutes")
 
 	def initiate(self):
 		rospy.loginfo("Publisher Initiated")
 
 		while not rospy.is_shutdown():
+			#self.aaa = self.ser.readline()
 			self.gas_data.reads = self.parse()
-			self.pub.publish(self.gas_data)
-			self.rate.sleep()
+			if (self.gas_data is not None):
+				self.pub.publish(self.gas_data)
+				self.rate.sleep()
 
 
